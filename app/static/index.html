@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paperly - The Global News Feed</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <h1 class="logo"><a href="/">Paperly.</a></h1>
+            <nav class="main-nav">
+                <button class="nav-btn active" data-category="">Top Stories</button>
+                <button class="nav-btn" data-category="world">World</button>
+                <button class="nav-btn" data-category="india">India</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="feed-header">
+            <h2 id="feed-title">Top Stories</h2>
+            <button id="trigger-ingest" class="action-btn">Fetch Latest News</button>
+        </section>
+
+        <div id="articles-grid" class="articles-grid">
+            <!-- Articles will be injected here via JS -->
+            <div class="loading">Loading stories...</div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; 2026 Paperly News. Powered by AI Recommendations.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

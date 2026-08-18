@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article - Paperly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="article-page">
+    <header class="site-header">
+        <div class="container">
+            <h1 class="logo"><a href="/">Paperly.</a></h1>
+            <nav class="main-nav">
+                <a href="/" class="nav-link">&larr; Back to Feed</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container article-container">
+        <article id="article-content" class="article-full">
+            <div class="loading">Loading article...</div>
+            <!-- Article content injected here -->
+        </article>
+
+        <aside class="recommendations-sidebar">
+            <h3 class="section-heading">You might also like</h3>
+            <div id="similar-articles" class="similar-list">
+                <div class="loading">Finding related stories...</div>
+                <!-- Similar articles injected here -->
+            </div>
+        </aside>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; 2026 Paperly News. Powered by AI Recommendations.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        // Load article details automatically if on article page
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const articleId = urlParams.get('id');
+            if (articleId) {
+                loadArticle(articleId);
+            }
+        });
+    </script>
+</body>
+</html>
