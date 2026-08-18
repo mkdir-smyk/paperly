@@ -1,8 +1,15 @@
+
+
 # Paperly: Semantic News Recommendation Engine
 
 A purely content-based news feed that finds non-obvious connections between stories across topics. 
 
 Unlike traditional platforms that rely on user tracking and collaborative filtering to build recommendations, Paperly bypasses the "cold-start" problem by relying entirely on **mathematical semantic similarity**. It surfaces related articles by understanding the *meaning* of the text, giving readers a chance to explore interconnected topics without being trapped in an algorithmic echo chamber.
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/baad4b85-0830-49d6-ad25-afb1c33aa3da" width="49%" />
+  <img src="https://github.com/user-attachments/assets/6bd20101-c2bb-4ef4-92e7-03a5fd7c0722" width="49%" />
+</div>
 
 ## How it Works
 1. **Ingestion:** A background service fetches live articles from external sources (FreeNewsApi) every hour.
