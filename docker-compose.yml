@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-paperly}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgres_data:/var/lib/postgresql/data
@@ -21,18 +21,28 @@ services:
 
   api:
     build:
-      context: ./app
+      context: ./backend
     container_name: paperly_api
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-paperly}
       - NEWS_API_KEY=${NEWS_API_KEY}
+      - CORS_ORIGINS=*
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/app
+      - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: paperly_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

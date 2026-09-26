@@ -1,14 +1,20 @@
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv()
+
 import requests
 from datetime import datetime
 import psycopg
+import time
 
 from database import get_pool, init_db
 from embedder import get_embedding
 
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-
-import time
 
 def fetch_freenewsapi_articles(category: str) -> list:
     """

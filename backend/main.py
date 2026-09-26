@@ -1,20 +1,30 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 import psycopg
-
-from database import get_pool, init_db, get_db_connection
-from ingestor import ingest_articles
-
-from apscheduler.schedulers.background import BackgroundScheduler
+import os
 import contextlib
+from pathlib import Path
+from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+
+# Load .env
+load_dotenv(Path(__file__).resolve().parent / ".env")
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv()
+
+from database import get_pool, init_db, get_db_connection, seed_initial_articles
+from ingestor import ingest_articles
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize DB
-    init_db()
+    # Initialize DB (creates extension, table, indices, and seeds sample data if empty)
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Warning: Database initialization failed during startup ({e}). It will retry on first request.")
     
     # Start scheduler
     scheduler = BackgroundScheduler()
@@ -25,24 +35,41 @@ async def lifespan(app: FastAPI):
     
     scheduler.shutdown()
 
-app = FastAPI(title="Paperly News Feed", lifespan=lifespan)
+app = FastAPI(title="Paperly News Feed API", lifespan=lifespan)
+
+# Setup CORS for decoupled frontend deployment
+allowed_origins_env = os.getenv("CORS_ORIGINS", "*")
+origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins if origins != ["*"] else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Pydantic models
 class ArticleBase(BaseModel):
     id: int
     title: str
-    description: Optional[str]
-    url: str
-    image_url: Optional[str]
-    source_name: Optional[str]
-    category: str
-    published_at: Optional[datetime]
+    description: Optional[str] = None
+    url: Optional[str] = None
+    image_url: Optional[str] = None
+    source_name: Optional[str] = None
+    category: Optional[str] = 'world'
+    published_at: Optional[datetime] = None
 
 class ArticleDetail(ArticleBase):
-    content: Optional[str]
+    content: Optional[str] = None
 
 class SimilarArticle(ArticleBase):
     similarity: float
+
+# Health Check Endpoint
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 # API Endpoints
 @app.get("/api/articles", response_model=List[ArticleBase])
@@ -134,6 +161,7 @@ def trigger_ingestion():
     result = ingest_articles()
     return result
 
-# Serve Static Frontend files
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
-
+@app.post("/api/seed")
+def trigger_seed():
+    seed_initial_articles()
+    return {"status": "success", "message": "Initial articles seeded successfully"}
