@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import Header from './components/Header';
 import FeedHeader from './components/FeedHeader';
@@ -29,8 +29,8 @@ export default function App() {
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [similarArticles, setSimilarArticles] = useState([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
-  const [isIngesting, setIsIngesting] = useState(false);
   const [toast, setToast] = useState(null);
+  const bgIngestionTriggered = useRef(false);
 
   // Check URL params on initial load
   useEffect(() => {
@@ -89,6 +89,23 @@ export default function App() {
       loadFeed(currentCategory);
     }
   }, [currentCategory, activeArticleId, loadFeed]);
+
+  // Automatically trigger news ingestion in the background when someone opens the website
+  useEffect(() => {
+    if (bgIngestionTriggered.current) return;
+    bgIngestionTriggered.current = true;
+
+    triggerIngestion()
+      .then((res) => {
+        if (res?.inserted > 0) {
+          // Silently refresh feed with the newly ingested articles
+          loadFeed(currentCategory);
+        }
+      })
+      .catch((err) => {
+        console.warn('Background news ingestion skipped or unavailable:', err);
+      });
+  }, [currentCategory, loadFeed]);
 
   // Load next batch of articles without delay
   const handleLoadMore = async () => {
@@ -215,28 +232,6 @@ export default function App() {
     window.history.pushState({}, '', newUrl);
   };
 
-  // Trigger Ingestion
-  const handleTriggerIngest = async () => {
-    setIsIngesting(true);
-    try {
-      const res = await triggerIngestion();
-      const count = res.inserted ?? 0;
-      setToast({
-        type: 'success',
-        message: `Ingestion complete! Added ${count} new stories.`,
-      });
-      loadFeed(currentCategory);
-    } catch (err) {
-      console.error('Ingestion error:', err);
-      setToast({
-        type: 'error',
-        message: 'Ingestion failed. Ensure NEWS_API_KEY is configured.',
-      });
-    } finally {
-      setIsIngesting(false);
-    }
-  };
-
   const hasSearch = searchQuery.trim().length > 0;
   const leadArticle = !hasSearch && filteredArticles.length > 0 ? filteredArticles[0] : null;
   const remainingArticles = !hasSearch && filteredArticles.length > 0
@@ -266,13 +261,8 @@ export default function App() {
           <div className="container">
             <FeedHeader
               category={currentCategory}
-              onSelectCategory={handleSelectCategory}
-              onTriggerIngest={handleTriggerIngest}
-              isIngesting={isIngesting}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              articleCount={articles.length}
-              hasMore={hasMore}
             />
 
             {loadingFeed ? (
@@ -294,7 +284,7 @@ export default function App() {
                 ) : (
                   <>
                     <h3>No articles found</h3>
-                    <p>Click "Fetch Latest News" above to populate the feed with stories.</p>
+                    <p>Stories will appear automatically once ingested.</p>
                   </>
                 )}
               </div>
@@ -347,7 +337,7 @@ export default function App() {
                 {!hasSearch && !hasMore && articles.length > 0 && !loadingFeed && (
                   <div className="end-of-feed">
                     <div className="end-of-feed-line" />
-                    <span>All {articles.length} stories loaded for this edition</span>
+                    <span>You've caught up with all stories</span>
                     <div className="end-of-feed-line" />
                   </div>
                 )}

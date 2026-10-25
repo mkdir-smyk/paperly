@@ -1,15 +1,10 @@
 import React from 'react';
-import { RefreshCw, Search, X, Sparkles, Globe, MapPin } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 export default function FeedHeader({
   category,
-  onSelectCategory,
-  onTriggerIngest,
-  isIngesting,
   searchQuery,
   onSearchChange,
-  articleCount,
-  hasMore = false,
 }) {
   const getCategoryTitle = (cat) => {
     switch (cat) {
@@ -35,12 +30,6 @@ export default function FeedHeader({
       {/* Newspaper edition bar */}
       <div className="edition-bar">
         <div className="edition-date">{todayDate}</div>
-        <div className="edition-badge">
-          <span>Daily Edition</span>
-        </div>
-        <div className="edition-stats">
-          <span>{articleCount}{hasMore ? '+' : ''} {articleCount === 1 ? 'Story' : 'Stories'} Available</span>
-        </div>
       </div>
 
       <div className="feed-header-main">
@@ -72,16 +61,6 @@ export default function FeedHeader({
               </button>
             )}
           </div>
-
-          <button
-            className="action-btn"
-            onClick={onTriggerIngest}
-            disabled={isIngesting}
-            aria-label="Fetch latest news articles"
-          >
-            <RefreshCw size={14} className={isIngesting ? 'spin' : ''} />
-            <span>{isIngesting ? 'Ingesting...' : 'Fetch Latest News'}</span>
-          </button>
         </div>
       </div>
     </section>
