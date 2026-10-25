@@ -1,9 +1,10 @@
 import React from 'react';
 import { ArrowRight, Clock } from 'lucide-react';
-import { formatDateShort } from '../api';
+import { formatDateShort, getFreshnessInfo } from '../api';
 
 export default function ArticleCard({ article, index, onSelectArticle }) {
   const staggerDelay = `${Math.min(index * 45, 500)}ms`;
+  const freshness = getFreshnessInfo(article.published_at);
 
   return (
     <article
@@ -30,8 +31,11 @@ export default function ArticleCard({ article, index, onSelectArticle }) {
         <span>&middot;</span>
         <span className="meta-time">
           <Clock size={11} />
-          <span>{formatDateShort(article.published_at)}</span>
+          <span>{freshness.label || formatDateShort(article.published_at)}</span>
         </span>
+        {freshness.isFresh && (
+          <span className="fresh-pill">Fresh</span>
+        )}
       </div>
       <h3>
         <a

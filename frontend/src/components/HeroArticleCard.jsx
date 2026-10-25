@@ -1,9 +1,11 @@
 import React from 'react';
 import { ArrowRight, Clock, Sparkles } from 'lucide-react';
-import { formatDateShort } from '../api';
+import { formatDateShort, getFreshnessInfo } from '../api';
 
 export default function HeroArticleCard({ article, onSelectArticle }) {
   if (!article) return null;
+
+  const freshness = getFreshnessInfo(article.published_at);
 
   return (
     <section className="hero-story-container" onClick={() => onSelectArticle(article.id)}>
@@ -32,8 +34,11 @@ export default function HeroArticleCard({ article, onSelectArticle }) {
             <span>&middot;</span>
             <span className="meta-time">
               <Clock size={12} />
-              <span>{formatDateShort(article.published_at)}</span>
+              <span>{freshness.label || formatDateShort(article.published_at)}</span>
             </span>
+            {freshness.isFresh && (
+              <span className="fresh-pill">Fresh</span>
+            )}
           </div>
 
           <h2 className="hero-title">

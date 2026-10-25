@@ -654,6 +654,75 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 4px;
 }
 
+/* Freshness badge / pill */
+.fresh-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  padding: 0.12rem 0.45rem;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.similarity-badge-container {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Load More Section */
+.load-more-section {
+  display: flex;
+  justify-content: center;
+  margin: var(--spacing-xl) 0 var(--spacing-lg);
+}
+
+.load-more-btn {
+  padding: 0.75rem 2rem;
+  font-size: 0.92rem;
+  border-radius: 30px;
+  background-color: var(--color-brand);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background-color: var(--color-brand-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.loading-more-container {
+  margin-top: var(--spacing-lg);
+  animation: fadeIn 0.3s ease;
+}
+
+/* End of Feed */
+.end-of-feed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin: var(--spacing-xl) 0;
+  color: var(--color-text-light);
+  font-size: 0.85rem;
+  font-family: var(--font-heading);
+  font-style: italic;
+  text-align: center;
+}
+
+.end-of-feed-line {
+  flex: 1;
+  max-width: 150px;
+  height: 1px;
+  background-color: var(--color-border);
+}
+
 /* Toast Notification */
 .toast-container {
   position: fixed;

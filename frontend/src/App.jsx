@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ChevronDown } from 'lucide-react';
 import Header from './components/Header';
 import FeedHeader from './components/FeedHeader';
 import HeroArticleCard from './components/HeroArticleCard';
@@ -6,12 +7,22 @@ import ArticleCard from './components/ArticleCard';
 import ArticleView from './components/ArticleView';
 import LoadingSkeleton from './components/LoadingSkeleton';
 import Toast from './components/Toast';
-import { fetchArticles, fetchArticle, fetchSimilarArticles, triggerIngestion } from './api';
+import {
+  fetchArticles,
+  fetchArticle,
+  fetchSimilarArticles,
+  triggerIngestion,
+  calculateFreshnessScore,
+} from './api';
+
+const PAGE_SIZE = 12;
 
 export default function App() {
   const [currentCategory, setCurrentCategory] = useState('');
   const [articles, setArticles] = useState([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeArticleId, setActiveArticleId] = useState(null);
   const [currentArticle, setCurrentArticle] = useState(null);
@@ -53,12 +64,15 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Load feed whenever category changes or when on feed view
+  // Load initial feed whenever category changes or when navigating back to feed view
   const loadFeed = useCallback(async (category = currentCategory) => {
     setLoadingFeed(true);
+    setHasMore(true);
     try {
-      const data = await fetchArticles(category);
-      setArticles(data || []);
+      const data = await fetchArticles(category, PAGE_SIZE, 0);
+      const items = data || [];
+      setArticles(items);
+      setHasMore(items.length === PAGE_SIZE);
     } catch (err) {
       console.error('Failed to load feed:', err);
       setToast({
@@ -75,6 +89,34 @@ export default function App() {
       loadFeed(currentCategory);
     }
   }, [currentCategory, activeArticleId, loadFeed]);
+
+  // Load next batch of articles without delay
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const skip = articles.length;
+      const nextBatch = await fetchArticles(currentCategory, PAGE_SIZE, skip);
+      if (nextBatch && nextBatch.length > 0) {
+        setArticles((prev) => {
+          const existingIds = new Set(prev.map((a) => a.id));
+          const newItems = nextBatch.filter((a) => !existingIds.has(a.id));
+          return [...prev, ...newItems];
+        });
+        setHasMore(nextBatch.length === PAGE_SIZE);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more articles:', err);
+      setToast({
+        type: 'error',
+        message: 'Failed to load more stories.',
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Load article & similar recommendations
   useEffect(() => {
@@ -118,17 +160,26 @@ export default function App() {
     };
   }, [activeArticleId]);
 
+  // Rank articles based on current date and freshness score
+  const freshnessRankedArticles = useMemo(() => {
+    return [...articles].sort((a, b) => {
+      const scoreA = calculateFreshnessScore(null, a.published_at);
+      const scoreB = calculateFreshnessScore(null, b.published_at);
+      return scoreB - scoreA;
+    });
+  }, [articles]);
+
   // Filter articles based on search query
   const filteredArticles = useMemo(() => {
-    if (!searchQuery.trim()) return articles;
+    if (!searchQuery.trim()) return freshnessRankedArticles;
     const query = searchQuery.toLowerCase();
-    return articles.filter((art) => {
+    return freshnessRankedArticles.filter((art) => {
       const titleMatch = art.title?.toLowerCase().includes(query);
       const descMatch = art.description?.toLowerCase().includes(query);
       const sourceMatch = art.source_name?.toLowerCase().includes(query);
       return titleMatch || descMatch || sourceMatch;
     });
-  }, [articles, searchQuery]);
+  }, [freshnessRankedArticles, searchQuery]);
 
   // Navigate to an article
   const handleSelectArticle = (id) => {
@@ -152,6 +203,8 @@ export default function App() {
   const handleSelectCategory = (cat) => {
     setCurrentCategory(cat);
     setSearchQuery('');
+    setArticles([]);
+    setHasMore(true);
     if (activeArticleId) {
       setActiveArticleId(null);
       setCurrentArticle(null);
@@ -218,7 +271,8 @@ export default function App() {
               isIngesting={isIngesting}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              articleCount={filteredArticles.length}
+              articleCount={articles.length}
+              hasMore={hasMore}
             />
 
             {loadingFeed ? (
@@ -265,6 +319,36 @@ export default function App() {
                         onSelectArticle={handleSelectArticle}
                       />
                     ))}
+                  </div>
+                )}
+
+                {/* Loading skeleton animation to fill the void time when loading more */}
+                {loadingMore && (
+                  <div className="loading-more-container">
+                    <LoadingSkeleton count={3} />
+                  </div>
+                )}
+
+                {/* Load More Button or End of Edition Marker */}
+                {!hasSearch && hasMore && !loadingFeed && (
+                  <div className="load-more-section">
+                    <button
+                      className="action-btn load-more-btn"
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      aria-label="Load more articles"
+                    >
+                      <ChevronDown size={16} className={loadingMore ? 'spin' : ''} />
+                      <span>{loadingMore ? 'Loading More Stories...' : 'Load More Stories'}</span>
+                    </button>
+                  </div>
+                )}
+
+                {!hasSearch && !hasMore && articles.length > 0 && !loadingFeed && (
+                  <div className="end-of-feed">
+                    <div className="end-of-feed-line" />
+                    <span>All {articles.length} stories loaded for this edition</span>
+                    <div className="end-of-feed-line" />
                   </div>
                 )}
               </>

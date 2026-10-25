@@ -9,6 +9,7 @@ export default function FeedHeader({
   searchQuery,
   onSearchChange,
   articleCount,
+  hasMore = false,
 }) {
   const getCategoryTitle = (cat) => {
     switch (cat) {
@@ -38,7 +39,7 @@ export default function FeedHeader({
           <span>Daily Edition</span>
         </div>
         <div className="edition-stats">
-          <span>{articleCount} {articleCount === 1 ? 'Story' : 'Stories'} Available</span>
+          <span>{articleCount}{hasMore ? '+' : ''} {articleCount === 1 ? 'Story' : 'Stories'} Available</span>
         </div>
       </div>
 
