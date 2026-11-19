@@ -29,6 +29,19 @@ export async function fetchSimilarArticles(id, category = null, limit = 5) {
   return res.json();
 }
 
+export async function searchArticles(query, category = '', limit = 15) {
+  if (!query || !query.trim()) return [];
+  const params = new URLSearchParams({ q: query.trim(), limit });
+  if (category) {
+    params.append('category', category);
+  }
+  const res = await fetch(`${API_BASE}/search?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Semantic search failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function triggerIngestion() {
   const res = await fetch(`${API_BASE}/ingest/run`, {
     method: 'POST',

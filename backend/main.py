@@ -17,6 +17,7 @@ load_dotenv()
 
 from database import get_pool, init_db, get_db_connection, seed_initial_articles
 from ingestor import ingest_articles
+from embedder import get_embedding
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -64,6 +65,9 @@ class ArticleDetail(ArticleBase):
     content: Optional[str] = None
 
 class SimilarArticle(ArticleBase):
+    similarity: float
+
+class SearchResult(ArticleBase):
     similarity: float
 
 # Health Check Endpoint
@@ -167,6 +171,48 @@ def get_similar_articles(article_id: int, category: Optional[str] = None, limit:
         rows = cur.fetchall()
         return [
             SimilarArticle(
+                id=row[0], title=row[1], description=row[2], url=row[3],
+                image_url=row[4], source_name=row[5], category=row[6], published_at=row[7], similarity=row[8]
+            ) for row in rows
+        ]
+
+@app.get("/api/search", response_model=List[SearchResult])
+def search_articles(
+    q: str = Query(..., min_length=1, max_length=200, description="Semantic concept query"),
+    category: Optional[str] = None,
+    limit: int = 15,
+    conn: psycopg.Connection = Depends(get_db_connection)
+):
+    query_embedding = get_embedding(q)
+    with conn.cursor() as cur:
+        # Utilize HNSW index to find closest conceptual matches to user's query
+        if category:
+            cur.execute(
+                """
+                SELECT id, title, description, url, image_url, source_name, category, published_at,
+                       1 - (embedding <=> %s::vector) AS similarity
+                FROM articles
+                WHERE category = %s
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+                """,
+                (query_embedding, category, query_embedding, limit)
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, title, description, url, image_url, source_name, category, published_at,
+                       1 - (embedding <=> %s::vector) AS similarity
+                FROM articles
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+                """,
+                (query_embedding, query_embedding, limit)
+            )
+            
+        rows = cur.fetchall()
+        return [
+            SearchResult(
                 id=row[0], title=row[1], description=row[2], url=row[3],
                 image_url=row[4], source_name=row[5], category=row[6], published_at=row[7], similarity=row[8]
             ) for row in rows

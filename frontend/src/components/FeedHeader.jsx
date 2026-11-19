@@ -1,10 +1,11 @@
 import React from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Loader2 } from 'lucide-react';
 
 export default function FeedHeader({
   category,
   searchQuery,
   onSearchChange,
+  searching = false,
 }) {
   const getCategoryTitle = (cat) => {
     switch (cat) {
@@ -41,15 +42,19 @@ export default function FeedHeader({
         </div>
 
         <div className="feed-actions">
-          {/* Quick search input */}
+          {/* Quick semantic search input */}
           <div className="search-box">
-            <Search size={15} className="search-icon" />
+            {searching ? (
+              <Loader2 size={15} className="search-icon spin" />
+            ) : (
+              <Search size={15} className="search-icon" />
+            )}
             <input
               type="text"
-              placeholder="Filter stories..."
+              placeholder="Search concepts or topics..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              aria-label="Filter stories"
+              aria-label="Search stories"
             />
             {searchQuery && (
               <button

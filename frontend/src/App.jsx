@@ -11,6 +11,7 @@ import {
   fetchArticles,
   fetchArticle,
   fetchSimilarArticles,
+  searchArticles,
   calculateFreshnessScore,
 } from './api';
 
@@ -23,6 +24,8 @@ export default function App() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
   const [activeArticleId, setActiveArticleId] = useState(null);
   const [currentArticle, setCurrentArticle] = useState(null);
   const [loadingArticle, setLoadingArticle] = useState(false);
@@ -158,6 +161,33 @@ export default function App() {
     };
   }, [activeArticleId]);
 
+  // Trigger semantic search with debounce when search query changes
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const timer = setTimeout(() => {
+      searchArticles(trimmed, currentCategory)
+        .then((data) => {
+          setSearchResults(data || []);
+        })
+        .catch((err) => {
+          console.warn('Semantic search error, fallback to local match:', err);
+          setSearchResults(null);
+        })
+        .finally(() => {
+          setSearching(false);
+        });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, currentCategory]);
+
   // Rank articles based on current date and freshness score
   const freshnessRankedArticles = useMemo(() => {
     return [...articles].sort((a, b) => {
@@ -167,7 +197,7 @@ export default function App() {
     });
   }, [articles]);
 
-  // Filter articles based on search query
+  // Filter articles based on search query as a fallback
   const filteredArticles = useMemo(() => {
     if (!searchQuery.trim()) return freshnessRankedArticles;
     const query = searchQuery.toLowerCase();
@@ -178,6 +208,13 @@ export default function App() {
       return titleMatch || descMatch || sourceMatch;
     });
   }, [freshnessRankedArticles, searchQuery]);
+
+  // Combined search: prioritize semantic vector search results when available
+  const displayedArticles = useMemo(() => {
+    if (!searchQuery.trim()) return freshnessRankedArticles;
+    if (searchResults !== null) return searchResults;
+    return filteredArticles;
+  }, [freshnessRankedArticles, searchResults, filteredArticles, searchQuery]);
 
   // Navigate to an article
   const handleSelectArticle = (id) => {
@@ -201,6 +238,7 @@ export default function App() {
   const handleSelectCategory = (cat) => {
     setCurrentCategory(cat);
     setSearchQuery('');
+    setSearchResults(null);
     setArticles([]);
     setHasMore(true);
     if (activeArticleId) {
@@ -214,10 +252,10 @@ export default function App() {
   };
 
   const hasSearch = searchQuery.trim().length > 0;
-  const leadArticle = !hasSearch && filteredArticles.length > 0 ? filteredArticles[0] : null;
-  const remainingArticles = !hasSearch && filteredArticles.length > 0
-    ? filteredArticles.slice(1)
-    : filteredArticles;
+  const leadArticle = !hasSearch && displayedArticles.length > 0 ? displayedArticles[0] : null;
+  const remainingArticles = !hasSearch && displayedArticles.length > 0
+    ? displayedArticles.slice(1)
+    : displayedArticles;
 
   return (
     <>
@@ -244,16 +282,17 @@ export default function App() {
               category={currentCategory}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
+              searching={searching}
             />
 
-            {loadingFeed ? (
+            {loadingFeed || searching ? (
               <LoadingSkeleton count={6} />
-            ) : filteredArticles.length === 0 ? (
+            ) : displayedArticles.length === 0 ? (
               <div className="empty-state">
                 {hasSearch ? (
                   <>
                     <h3>No stories match your search</h3>
-                    <p>No articles found for "{searchQuery}".</p>
+                    <p>No articles found for "{searchQuery}". Try different keywords or concepts.</p>
                     <button
                       className="action-btn"
                       style={{ marginTop: '1rem' }}
