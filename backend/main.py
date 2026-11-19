@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -173,9 +173,9 @@ def get_similar_articles(article_id: int, category: Optional[str] = None, limit:
         ]
 
 @app.post("/api/ingest/run")
-def trigger_ingestion():
-    result = ingest_articles()
-    return result
+def trigger_ingestion(background_tasks: BackgroundTasks):
+    background_tasks.add_task(ingest_articles)
+    return {"status": "queued", "message": "Ingestion job dispatched in background"}
 
 @app.post("/api/seed")
 def trigger_seed():

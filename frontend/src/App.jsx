@@ -11,7 +11,6 @@ import {
   fetchArticles,
   fetchArticle,
   fetchSimilarArticles,
-  triggerIngestion,
   calculateFreshnessScore,
 } from './api';
 
@@ -30,7 +29,6 @@ export default function App() {
   const [similarArticles, setSimilarArticles] = useState([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [toast, setToast] = useState(null);
-  const bgIngestionTriggered = useRef(false);
 
   // Check URL params on initial load
   useEffect(() => {
@@ -89,23 +87,6 @@ export default function App() {
       loadFeed(currentCategory);
     }
   }, [currentCategory, activeArticleId, loadFeed]);
-
-  // Automatically trigger news ingestion in the background when someone opens the website
-  useEffect(() => {
-    if (bgIngestionTriggered.current) return;
-    bgIngestionTriggered.current = true;
-
-    triggerIngestion()
-      .then((res) => {
-        if (res?.inserted > 0) {
-          // Silently refresh feed with the newly ingested articles
-          loadFeed(currentCategory);
-        }
-      })
-      .catch((err) => {
-        console.warn('Background news ingestion skipped or unavailable:', err);
-      });
-  }, [currentCategory, loadFeed]);
 
   // Load next batch of articles without delay
   const handleLoadMore = async () => {
