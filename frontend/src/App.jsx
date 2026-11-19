@@ -7,12 +7,19 @@ import ArticleCard from './components/ArticleCard';
 import ArticleView from './components/ArticleView';
 import LoadingSkeleton from './components/LoadingSkeleton';
 import Toast from './components/Toast';
+import AuthModal from './components/AuthModal';
 import {
   fetchArticles,
   fetchArticle,
   fetchSimilarArticles,
   searchArticles,
   calculateFreshnessScore,
+  getStoredUser,
+  setStoredAuth,
+  fetchCurrentUser,
+  fetchBookmarks,
+  fetchBookmarkIds,
+  toggleBookmark,
 } from './api';
 
 const PAGE_SIZE = 12;
@@ -32,6 +39,11 @@ export default function App() {
   const [similarArticles, setSimilarArticles] = useState([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [toast, setToast] = useState(null);
+
+  // Authentication & Bookmark State
+  const [user, setUser] = useState(getStoredUser());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
 
   // Check URL params on initial load
   useEffect(() => {
@@ -65,15 +77,31 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Check authentication session on mount
+  useEffect(() => {
+    fetchCurrentUser().then((u) => {
+      setUser(u);
+      if (u) {
+        fetchBookmarkIds().then((ids) => setBookmarkedIds(new Set(ids)));
+      }
+    });
+  }, []);
+
   // Load initial feed whenever category changes or when navigating back to feed view
   const loadFeed = useCallback(async (category = currentCategory) => {
     setLoadingFeed(true);
     setHasMore(true);
     try {
-      const data = await fetchArticles(category, PAGE_SIZE, 0);
-      const items = data || [];
-      setArticles(items);
-      setHasMore(items.length === PAGE_SIZE);
+      if (category === 'saved') {
+        const saved = await fetchBookmarks();
+        setArticles(saved || []);
+        setHasMore(false);
+      } else {
+        const data = await fetchArticles(category, PAGE_SIZE, 0);
+        const items = data || [];
+        setArticles(items);
+        setHasMore(items.length === PAGE_SIZE);
+      }
     } catch (err) {
       console.error('Failed to load feed:', err);
       setToast({
@@ -84,6 +112,72 @@ export default function App() {
       setLoadingFeed(false);
     }
   }, [currentCategory]);
+
+  const handleAuthSuccess = (authenticatedUser) => {
+    setUser(authenticatedUser);
+    fetchBookmarkIds().then((ids) => setBookmarkedIds(new Set(ids)));
+    setToast({
+      type: 'success',
+      message: `Welcome back, ${authenticatedUser.name}!`,
+    });
+  };
+
+  const handleLogout = () => {
+    setStoredAuth(null, null);
+    setUser(null);
+    setBookmarkedIds(new Set());
+    if (currentCategory === 'saved') {
+      handleSelectCategory('');
+    }
+    setToast({
+      type: 'info',
+      message: 'You have been signed out.',
+    });
+  };
+
+  const handleToggleBookmark = async (articleId) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      setToast({
+        type: 'info',
+        message: 'Please sign in to save stories to your reading list.',
+      });
+      return;
+    }
+
+    const isCurrently = bookmarkedIds.has(articleId);
+
+    // Optimistic UI update
+    setBookmarkedIds((prev) => {
+      const next = new Set(prev);
+      if (isCurrently) next.delete(articleId);
+      else next.add(articleId);
+      return next;
+    });
+
+    try {
+      await toggleBookmark(articleId, isCurrently);
+      if (isCurrently && currentCategory === 'saved') {
+        setArticles((prev) => prev.filter((a) => a.id !== articleId));
+      }
+      setToast({
+        type: 'success',
+        message: isCurrently ? 'Story removed from saved.' : 'Story saved to bookmarks.',
+      });
+    } catch (err) {
+      // Revert optimistic update on failure
+      setBookmarkedIds((prev) => {
+        const next = new Set(prev);
+        if (isCurrently) next.add(articleId);
+        else next.delete(articleId);
+        return next;
+      });
+      setToast({
+        type: 'error',
+        message: 'Failed to update bookmark.',
+      });
+    }
+  };
 
   useEffect(() => {
     if (!activeArticleId) {
@@ -264,6 +358,9 @@ export default function App() {
         onSelectCategory={handleSelectCategory}
         viewingArticle={!!activeArticleId}
         onBackToFeed={handleBackToFeed}
+        user={user}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       <main className="main-content">
@@ -275,6 +372,8 @@ export default function App() {
             loadingSimilar={loadingSimilar}
             onSelectArticle={handleSelectArticle}
             onBackToFeed={handleBackToFeed}
+            isBookmarked={currentArticle ? bookmarkedIds.has(currentArticle.id) : false}
+            onToggleBookmark={handleToggleBookmark}
           />
         ) : (
           <div className="container">
@@ -301,6 +400,18 @@ export default function App() {
                       Clear Search Filter
                     </button>
                   </>
+                ) : currentCategory === 'saved' ? (
+                  <>
+                    <h3>No Saved Stories Yet</h3>
+                    <p>Click the bookmark icon on any story to save it to your personal reading collection.</p>
+                    <button
+                      className="action-btn"
+                      style={{ marginTop: '1rem' }}
+                      onClick={() => handleSelectCategory('')}
+                    >
+                      Browse Top Stories
+                    </button>
+                  </>
                 ) : (
                   <>
                     <h3>No articles found</h3>
@@ -310,23 +421,27 @@ export default function App() {
               </div>
             ) : (
               <>
-                {/* Hero Lead Story (when not searching) */}
-                {leadArticle && (
+                {/* Hero Lead Story (when not searching and not in saved) */}
+                {leadArticle && currentCategory !== 'saved' && (
                   <HeroArticleCard
                     article={leadArticle}
                     onSelectArticle={handleSelectArticle}
+                    isBookmarked={bookmarkedIds.has(leadArticle.id)}
+                    onToggleBookmark={handleToggleBookmark}
                   />
                 )}
 
                 {/* Remaining Stories Grid */}
-                {remainingArticles.length > 0 && (
+                {(currentCategory === 'saved' ? displayedArticles : remainingArticles).length > 0 && (
                   <div className="articles-grid">
-                    {remainingArticles.map((article, idx) => (
+                    {(currentCategory === 'saved' ? displayedArticles : remainingArticles).map((article, idx) => (
                       <ArticleCard
                         key={article.id}
                         article={article}
                         index={idx}
                         onSelectArticle={handleSelectArticle}
+                        isBookmarked={bookmarkedIds.has(article.id)}
+                        onToggleBookmark={handleToggleBookmark}
                       />
                     ))}
                   </div>
@@ -340,7 +455,7 @@ export default function App() {
                 )}
 
                 {/* Load More Button or End of Edition Marker */}
-                {!hasSearch && hasMore && !loadingFeed && (
+                {!hasSearch && hasMore && !loadingFeed && currentCategory !== 'saved' && (
                   <div className="load-more-section">
                     <button
                       className="action-btn load-more-btn"
@@ -357,7 +472,7 @@ export default function App() {
                 {!hasSearch && !hasMore && articles.length > 0 && !loadingFeed && (
                   <div className="end-of-feed">
                     <div className="end-of-feed-line" />
-                    <span>You've caught up with all stories</span>
+                    <span>{currentCategory === 'saved' ? 'End of your reading collection' : "You've caught up with all stories"}</span>
                     <div className="end-of-feed-line" />
                   </div>
                 )}
@@ -366,6 +481,12 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
 
       <Toast toast={toast} onClose={() => setToast(null)} />
     </>

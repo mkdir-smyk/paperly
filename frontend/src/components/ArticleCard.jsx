@@ -1,8 +1,14 @@
 import React from 'react';
-import { ArrowRight, Clock } from 'lucide-react';
+import { ArrowRight, Clock, Bookmark } from 'lucide-react';
 import { formatDateShort, getFreshnessInfo } from '../api';
 
-export default function ArticleCard({ article, index, onSelectArticle }) {
+export default function ArticleCard({
+  article,
+  index,
+  onSelectArticle,
+  isBookmarked = false,
+  onToggleBookmark,
+}) {
   const staggerDelay = `${Math.min(index * 45, 500)}ms`;
   const freshness = getFreshnessInfo(article.published_at);
 
@@ -51,8 +57,23 @@ export default function ArticleCard({ article, index, onSelectArticle }) {
       {article.description && <p>{article.description}</p>}
       
       <div className="card-footer-cta">
-        <span className="card-link-text">Read story</span>
-        <ArrowRight size={13} className="arrow-icon" />
+        <div className="card-link-group">
+          <span className="card-link-text">Read story</span>
+          <ArrowRight size={13} className="arrow-icon" />
+        </div>
+        {onToggleBookmark && (
+          <button
+            className={`bookmark-icon-btn ${isBookmarked ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleBookmark(article.id);
+            }}
+            aria-label={isBookmarked ? 'Remove from saved' : 'Save for later'}
+            title={isBookmarked ? 'Remove from saved' : 'Save for later'}
+          >
+            <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
+          </button>
+        )}
       </div>
     </article>
   );

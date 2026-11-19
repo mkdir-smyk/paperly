@@ -75,8 +75,29 @@ def init_db():
                 ON articles USING hnsw (embedding vector_cosine_ops)
                 WITH (m = 16, ef_construction = 64);
             """)
-            
-            # 4. Check if we need to seed initial articles
+
+            # 4. Create authentication and user bookmarks tables
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                hashed_password TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT now()
+            );
+            """)
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS user_bookmarks (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                article_id INT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT now(),
+                UNIQUE(user_id, article_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_user_bookmarks_user ON user_bookmarks (user_id);
+            """)
+
+            # 5. Check if we need to seed initial articles
             cur.execute("SELECT COUNT(*) FROM articles;")
             count = cur.fetchone()[0]
             

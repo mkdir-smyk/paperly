@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 import psycopg
 import os
+import re
 import contextlib
 from pathlib import Path
 from dotenv import load_dotenv
@@ -18,6 +19,13 @@ load_dotenv()
 from database import get_pool, init_db, get_db_connection, seed_initial_articles
 from ingestor import ingest_articles
 from embedder import get_embedding
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
+    get_current_user_optional,
+)
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -69,6 +77,31 @@ class SimilarArticle(ArticleBase):
 
 class SearchResult(ArticleBase):
     similarity: float
+
+# Authentication & User models
+class UserRegisterRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=100)
+    password: str = Field(..., min_length=6, max_length=72)
+    name: str = Field(..., min_length=1, max_length=60)
+
+class UserLoginRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=100)
+    password: str = Field(..., min_length=1, max_length=72)
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    name: str
+    created_at: Optional[datetime] = None
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+class BookmarkResponse(BaseModel):
+    article_id: int
+    bookmarked: bool
 
 # Health Check Endpoint
 @app.get("/api/health")
@@ -227,3 +260,122 @@ def trigger_ingestion(background_tasks: BackgroundTasks):
 def trigger_seed():
     seed_initial_articles()
     return {"status": "success", "message": "Initial articles seeded successfully"}
+
+# ---------------------------------------------------------
+# Authentication & User Management Endpoints
+# ---------------------------------------------------------
+
+@app.post("/api/auth/register", response_model=AuthResponse)
+def register_user(req: UserRegisterRequest, conn: psycopg.Connection = Depends(get_db_connection)):
+    cleaned_email = req.email.strip().lower()
+    cleaned_name = req.name.strip()
+    
+    # Format and safety validations
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", cleaned_email):
+        raise HTTPException(status_code=400, detail="Invalid email format.")
+    
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+    
+    with conn.cursor() as cur:
+        # Check if user already exists
+        cur.execute("SELECT id FROM users WHERE email = %s", (cleaned_email,))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail="An account with this email already exists.")
+        
+        hashed = hash_password(req.password)
+        cur.execute(
+            """
+            INSERT INTO users (email, name, hashed_password)
+            VALUES (%s, %s, %s)
+            RETURNING id, email, name, created_at
+            """,
+            (cleaned_email, cleaned_name, hashed)
+        )
+        row = cur.fetchone()
+        conn.commit()
+
+        user = UserResponse(id=row[0], email=row[1], name=row[2], created_at=row[3])
+        token = create_access_token(user.id, user.email)
+        return AuthResponse(access_token=token, user=user)
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+def login_user(req: UserLoginRequest, conn: psycopg.Connection = Depends(get_db_connection)):
+    cleaned_email = req.email.strip().lower()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, email, name, hashed_password, created_at FROM users WHERE email = %s",
+            (cleaned_email,)
+        )
+        row = cur.fetchone()
+        # Uniform error message prevents email enumeration attacks
+        if not row or not verify_password(req.password, row[3]):
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        
+        user = UserResponse(id=row[0], email=row[1], name=row[2], created_at=row[4])
+        token = create_access_token(user.id, user.email)
+        return AuthResponse(access_token=token, user=user)
+
+@app.get("/api/auth/me", response_model=UserResponse)
+def get_me(current_user: dict = Depends(get_current_user)):
+    return UserResponse(**current_user)
+
+# ---------------------------------------------------------
+# Bookmarks / Saved Stories Endpoints
+# ---------------------------------------------------------
+
+@app.get("/api/bookmarks", response_model=List[ArticleBase])
+def get_user_bookmarks(current_user: dict = Depends(get_current_user), conn: psycopg.Connection = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT a.id, a.title, a.description, a.url, a.image_url, a.source_name, a.category, a.published_at
+            FROM articles a
+            JOIN user_bookmarks b ON a.id = b.article_id
+            WHERE b.user_id = %s
+            ORDER BY b.created_at DESC
+            """,
+            (current_user["id"],)
+        )
+        rows = cur.fetchall()
+        return [
+            ArticleBase(
+                id=r[0], title=r[1], description=r[2], url=r[3],
+                image_url=r[4], source_name=r[5], category=r[6], published_at=r[7]
+            ) for r in rows
+        ]
+
+@app.get("/api/bookmarks/ids", response_model=List[int])
+def get_user_bookmark_ids(current_user: dict = Depends(get_current_user), conn: psycopg.Connection = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute("SELECT article_id FROM user_bookmarks WHERE user_id = %s", (current_user["id"],))
+        rows = cur.fetchall()
+        return [r[0] for r in rows]
+
+@app.post("/api/bookmarks/{article_id}", response_model=BookmarkResponse)
+def add_bookmark(article_id: int, current_user: dict = Depends(get_current_user), conn: psycopg.Connection = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM articles WHERE id = %s", (article_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Article not found.")
+        
+        cur.execute(
+            """
+            INSERT INTO user_bookmarks (user_id, article_id)
+            VALUES (%s, %s)
+            ON CONFLICT (user_id, article_id) DO NOTHING
+            """,
+            (current_user["id"], article_id)
+        )
+        conn.commit()
+        return BookmarkResponse(article_id=article_id, bookmarked=True)
+
+@app.delete("/api/bookmarks/{article_id}", response_model=BookmarkResponse)
+def remove_bookmark(article_id: int, current_user: dict = Depends(get_current_user), conn: psycopg.Connection = Depends(get_db_connection)):
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM user_bookmarks WHERE user_id = %s AND article_id = %s",
+            (current_user["id"], article_id)
+        )
+        conn.commit()
+        return BookmarkResponse(article_id=article_id, bookmarked=False)

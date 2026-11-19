@@ -21,3 +21,20 @@ CREATE INDEX IF NOT EXISTS idx_articles_embedding_hnsw
 
 CREATE INDEX IF NOT EXISTS idx_articles_category ON articles (category);
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles (published_at DESC);
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    hashed_password TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_bookmarks (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    article_id INT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT now(),
+    UNIQUE(user_id, article_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_bookmarks_user ON user_bookmarks (user_id);

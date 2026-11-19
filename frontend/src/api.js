@@ -53,6 +53,119 @@ export async function triggerIngestion() {
   return res.json();
 }
 
+export function getStoredToken() {
+  return localStorage.getItem('paperly_token');
+}
+
+export function setStoredAuth(token, user) {
+  if (token) {
+    localStorage.setItem('paperly_token', token);
+  } else {
+    localStorage.removeItem('paperly_token');
+  }
+  if (user) {
+    localStorage.setItem('paperly_user', JSON.stringify(user));
+  } else {
+    localStorage.removeItem('paperly_user');
+  }
+}
+
+export function getStoredUser() {
+  const data = localStorage.getItem('paperly_user');
+  try {
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getAuthHeaders() {
+  const token = getStoredToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export async function loginUser(email, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Login failed. Please check your credentials.');
+  }
+  const data = await res.json();
+  setStoredAuth(data.access_token, data.user);
+  return data;
+}
+
+export async function registerUser(name, email, password) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Registration failed.');
+  }
+  const data = await res.json();
+  setStoredAuth(data.access_token, data.user);
+  return data;
+}
+
+export async function fetchCurrentUser() {
+  const token = getStoredToken();
+  if (!token) return null;
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    setStoredAuth(null, null);
+    return null;
+  }
+  const user = await res.json();
+  setStoredAuth(token, user);
+  return user;
+}
+
+export async function fetchBookmarks() {
+  const res = await fetch(`${API_BASE}/bookmarks`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to fetch bookmarks');
+  }
+  return res.json();
+}
+
+export async function fetchBookmarkIds() {
+  const token = getStoredToken();
+  if (!token) return [];
+  const res = await fetch(`${API_BASE}/bookmarks/ids`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function toggleBookmark(articleId, isBookmarked) {
+  const method = isBookmarked ? 'DELETE' : 'POST';
+  const res = await fetch(`${API_BASE}/bookmarks/${articleId}`, {
+    method,
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update bookmark');
+  }
+  return res.json();
+}
+
 export function formatDate(dateString) {
   if (!dateString) return '';
   const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
