@@ -31,9 +31,18 @@ export default function FeedHeader({
         return 'World News';
       case 'india':
         return 'India News';
+      case 'saved':
+        return 'Saved Stories';
       default:
         return 'Top Stories';
     }
+  };
+
+  const getCategorySubtitle = (cat) => {
+    if (cat === 'saved') {
+      return 'Your personal saved stories and reading collection';
+    }
+    return 'Curated coverage and in-depth reporting from around the world';
   };
 
   // Formatted date string for authentic editorial edition banner
@@ -61,7 +70,7 @@ export default function FeedHeader({
         <div>
           <h2 className="feed-title">{getCategoryTitle(category)}</h2>
           <p className="feed-subtitle">
-            Stay Informed, Stay Ahead. Read smart.
+            {getCategorySubtitle(category)}
           </p>
         </div>
 

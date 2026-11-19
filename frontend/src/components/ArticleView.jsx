@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Bookmark } from 'lucide-react';
 import { formatDate } from '../api';
 import SimilarArticles from './SimilarArticles';
 
@@ -9,6 +9,8 @@ export default function ArticleView({
   similarArticles,
   loadingSimilar,
   onSelectArticle,
+  isBookmarked = false,
+  onToggleBookmark,
 }) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -48,6 +50,16 @@ export default function ArticleView({
           <span>By <strong>{article.source_name || 'Associated Press'}</strong></span>
           <span>&middot;</span>
           <span>{formatDate(article.published_at)}</span>
+          {onToggleBookmark && (
+            <button
+              className={`article-view-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+              onClick={() => onToggleBookmark(article.id)}
+              title={isBookmarked ? 'Remove from saved' : 'Save for later'}
+            >
+              <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
+              <span>{isBookmarked ? 'Saved' : 'Save'}</span>
+            </button>
+          )}
         </div>
 
         <h1>{article.title}</h1>

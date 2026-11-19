@@ -1,8 +1,13 @@
 import React from 'react';
-import { ArrowRight, Clock } from 'lucide-react';
+import { ArrowRight, Clock, Bookmark } from 'lucide-react';
 import { formatDateShort, getFreshnessInfo } from '../api';
 
-export default function HeroArticleCard({ article, onSelectArticle }) {
+export default function HeroArticleCard({
+  article,
+  onSelectArticle,
+  isBookmarked = false,
+  onToggleBookmark,
+}) {
   if (!article) return null;
 
   const freshness = getFreshnessInfo(article.published_at);
@@ -59,6 +64,20 @@ export default function HeroArticleCard({ article, onSelectArticle }) {
               <span>Read Full Story</span>
               <ArrowRight size={15} />
             </span>
+            {onToggleBookmark && (
+              <button
+                className={`hero-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleBookmark(article.id);
+                }}
+                aria-label={isBookmarked ? 'Remove from saved' : 'Save story'}
+                title={isBookmarked ? 'Remove from saved' : 'Save story'}
+              >
+                <Bookmark size={16} fill={isBookmarked ? 'currentColor' : 'none'} />
+                <span>{isBookmarked ? 'Saved' : 'Save'}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
