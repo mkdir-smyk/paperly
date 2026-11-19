@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search, X, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, X, Loader2, Clock } from 'lucide-react';
 
 export default function FeedHeader({
   category,
@@ -7,6 +7,25 @@ export default function FeedHeader({
   onSearchChange,
   searching = false,
 }) {
+  const [userTime, setUserTime] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setUserTime(
+        now.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const getCategoryTitle = (cat) => {
     switch (cat) {
       case 'world':
@@ -31,11 +50,25 @@ export default function FeedHeader({
       {/* Newspaper edition bar */}
       <div className="edition-bar">
         <div className="edition-date">{todayDate}</div>
+        {userTime && (
+          <div className="edition-time">
+            <Clock size={12} />
+            <span>{userTime} Local Time</span>
+          </div>
+        )}
       </div>
 
       <div className="feed-header-main">
         <div>
-          <h2 className="feed-title">{getCategoryTitle(category)}</h2>
+          <div className="feed-title-row">
+            <h2 className="feed-title">{getCategoryTitle(category)}</h2>
+            {userTime && (
+              <span className="feed-title-time">
+                <Clock size={13} />
+                <span>{userTime}</span>
+              </span>
+            )}
+          </div>
           <p className="feed-subtitle">
             Curated coverage and in-depth reporting from around the world
           </p>

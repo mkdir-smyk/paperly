@@ -1,15 +1,42 @@
-import React from 'react';
-import { ArrowLeft, Globe, MapPin, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Globe, MapPin, Sparkles, Clock } from 'lucide-react';
 
 export default function Header({ currentCategory, onSelectCategory, viewingArticle, onBackToFeed }) {
+  const [userTime, setUserTime] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setUserTime(
+        now.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <header className="site-header">
       <div className="container">
-        <h1 className="logo">
-          <a href="#" onClick={(e) => { e.preventDefault(); onBackToFeed(); }}>
-            Paperly.
-          </a>
-        </h1>
+        <div className="brand-header-area">
+          <h1 className="logo">
+            <a href="#" onClick={(e) => { e.preventDefault(); onBackToFeed(); }}>
+              Paperly.
+            </a>
+          </h1>
+          {userTime && (
+            <div className="header-local-time" title="Your local time">
+              <Clock size={12} />
+              <span>{userTime}</span>
+            </div>
+          )}
+        </div>
         <nav className="main-nav">
           {viewingArticle ? (
             <button className="nav-link" onClick={onBackToFeed}>
