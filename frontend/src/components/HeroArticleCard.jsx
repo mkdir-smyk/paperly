@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Clock, Sparkles } from 'lucide-react';
+import { ArrowRight, Clock } from 'lucide-react';
 import { formatDateShort, getFreshnessInfo } from '../api';
 
 export default function HeroArticleCard({ article, onSelectArticle }) {
@@ -21,7 +21,6 @@ export default function HeroArticleCard({ article, onSelectArticle }) {
               }}
             />
             <div className="hero-badge">
-              <Sparkles size={13} />
               <span>Lead Story</span>
             </div>
           </div>

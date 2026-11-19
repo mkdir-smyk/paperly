@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Sparkles, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { formatDate, formatSimilarity, calculateFreshnessScore, getFreshnessInfo } from '../api';
 
 export default function SimilarArticles({ articles, loading, onSelectArticle }) {
@@ -16,7 +16,6 @@ export default function SimilarArticles({ articles, loading, onSelectArticle }) 
   return (
     <aside className="recommendations-sidebar">
       <h3 className="section-heading">
-        <Sparkles size={16} />
         <span>Related Stories</span>
       </h3>
       <div className="similar-list">

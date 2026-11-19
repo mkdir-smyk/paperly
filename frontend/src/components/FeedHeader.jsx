@@ -16,13 +16,12 @@ export default function FeedHeader({
         now.toLocaleTimeString(undefined, {
           hour: 'numeric',
           minute: '2-digit',
-          second: '2-digit',
           hour12: true,
         })
       );
     };
     updateTime();
-    const interval = setInterval(updateTime, 1000);
+    const interval = setInterval(updateTime, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -53,24 +52,16 @@ export default function FeedHeader({
         {userTime && (
           <div className="edition-time">
             <Clock size={12} />
-            <span>{userTime} Local Time</span>
+            <span>{userTime}</span>
           </div>
         )}
       </div>
 
       <div className="feed-header-main">
         <div>
-          <div className="feed-title-row">
-            <h2 className="feed-title">{getCategoryTitle(category)}</h2>
-            {userTime && (
-              <span className="feed-title-time">
-                <Clock size={13} />
-                <span>{userTime}</span>
-              </span>
-            )}
-          </div>
+          <h2 className="feed-title">{getCategoryTitle(category)}</h2>
           <p className="feed-subtitle">
-            Curated coverage and in-depth reporting from around the world
+            Stay Informed, Stay Ahead. Read smart.
           </p>
         </div>
 

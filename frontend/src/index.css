@@ -88,31 +88,6 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
 }
 
-.brand-header-area {
-  display: flex;
-  align-items: baseline;
-  gap: 0.85rem;
-}
-
-.header-local-time {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--color-text-light);
-  background-color: #f1f5f9;
-  border: 1px solid var(--color-border);
-  padding: 0.2rem 0.55rem;
-  border-radius: 9999px;
-  letter-spacing: 0.02em;
-}
-
-.header-local-time svg {
-  color: var(--color-brand);
-}
-
 .logo {
   font-size: 2.25rem;
   font-weight: 700;
@@ -132,7 +107,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .main-nav {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: 1.5rem;
   align-items: center;
 }
 
@@ -140,27 +115,38 @@ h1, h2, h3, h4, h5, h6 {
   background: none;
   border: none;
   font-family: var(--font-body);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  color: var(--color-text-light);
+  color: #64748b;
   cursor: pointer;
-  padding: 0.5rem 0.85rem;
-  border-radius: 6px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0.4rem 0.15rem;
+  border-radius: 0;
+  position: relative;
+  transition: color 0.15s ease;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  letter-spacing: 0.01em;
 }
 
 .nav-btn:hover, .nav-link:hover {
   color: var(--color-brand);
-  background-color: #f1f5f9;
+  background: transparent;
 }
 
 .nav-btn.active {
   color: var(--color-brand);
-  font-weight: 600;
-  background-color: #e2e8f0;
+  font-weight: 700;
+  background: transparent;
+}
+
+.nav-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--color-brand);
 }
 
 /* Newspaper Edition Bar */
@@ -169,16 +155,17 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: space-between;
   align-items: center;
   padding: 0.65rem 0;
+  border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--color-text-light);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 0.5rem;
+  letter-spacing: 0.07em;
+  margin-top: 0.75rem;
 }
 
 .edition-date {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-brand);
 }
 
@@ -186,11 +173,11 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--color-text-light);
-  text-transform: none;
-  letter-spacing: normal;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .edition-badge {
@@ -219,32 +206,10 @@ h1, h2, h3, h4, h5, h6 {
   flex-wrap: wrap;
 }
 
-.feed-title-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
 .feed-title {
   font-size: 2.2rem;
   letter-spacing: -0.01em;
   animation: fadeIn 0.3s ease;
-}
-
-.feed-title-time {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--font-body);
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--color-text-light);
-  background: #f1f5f9;
-  border: 1px solid var(--color-border);
-  padding: 0.15rem 0.5rem;
-  border-radius: 6px;
-  vertical-align: middle;
 }
 
 .feed-subtitle {
@@ -265,17 +230,18 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   background-color: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem;
-  gap: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 0.45rem 0.85rem;
+  gap: 0.55rem;
   transition: all 0.2s ease;
-  min-width: 220px;
+  min-width: 240px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .search-box:focus-within {
   border-color: var(--color-brand);
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.07);
 }
 
 .search-icon {
@@ -404,17 +370,15 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   top: 0.85rem;
   left: 0.85rem;
-  background-color: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(4px);
+  background-color: #0f172a;
   color: white;
-  padding: 0.25rem 0.65rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -529,14 +493,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tag {
-  background-color: var(--color-tag-bg);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  color: var(--color-tag-text);
+  background-color: transparent;
+  border: 1px solid #cbd5e1;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  color: #475569;
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
 }
 
 .article-card h3 {
@@ -654,16 +619,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .section-heading {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  font-weight: 700;
   border-bottom: 2px solid var(--color-brand);
   padding-bottom: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   font-family: var(--font-body);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
 }
 
 .similar-list {
@@ -703,13 +668,14 @@ h1, h2, h3, h4, h5, h6 {
 .similarity-score {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  background-color: #dcfce7;
-  color: #166534;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
 }
 
 /* Freshness badge / pill */
@@ -720,8 +686,9 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background-color: #e0f2fe;
-  color: #0369a1;
+  background-color: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
   padding: 0.12rem 0.45rem;
   border-radius: 3px;
   line-height: 1;
