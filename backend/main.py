@@ -112,6 +112,7 @@ def get_article(article_id: int, conn: psycopg.Connection = Depends(get_db_conne
 
 @app.get("/api/articles/{article_id}/similar", response_model=List[SimilarArticle])
 def get_similar_articles(article_id: int, category: Optional[str] = None, limit: int = 5, conn: psycopg.Connection = Depends(get_db_connection)):
+    candidate_limit = max(limit * 8, 40)
     with conn.cursor() as cur:
         # First get the embedding of the target article
         cur.execute("SELECT embedding FROM articles WHERE id = %s", (article_id,))
@@ -121,31 +122,46 @@ def get_similar_articles(article_id: int, category: Optional[str] = None, limit:
         
         target_embedding = row[0]
         
-        # Then find nearest neighbors (exclude itself)
-        # Using vector_cosine_ops (<=>) for cosine distance. Similarity = 1 - distance.
+        # Two-Stage Retrieval:
+        # Stage 1: Candidate retrieval using indexed HNSW vector search (embedding <=> target_vector)
+        # Stage 2: Re-ranking candidates by blending cosine similarity and temporal recency decay
         if category:
             cur.execute(
                 """
+                WITH candidates AS (
+                    SELECT id, title, description, url, image_url, source_name, category, published_at,
+                           (embedding <=> %s::vector) AS cosine_dist
+                    FROM articles
+                    WHERE id != %s AND category = %s
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                )
                 SELECT id, title, description, url, image_url, source_name, category, published_at,
-                       1 - (embedding <=> %s::vector) AS similarity
-                FROM articles
-                WHERE id != %s AND category = %s
-                ORDER BY (embedding <=> %s::vector) + (0.001 * EXTRACT(DAY FROM now() - published_at))
+                       (1 - cosine_dist) AS similarity
+                FROM candidates
+                ORDER BY ((1 - cosine_dist) * 0.75 + EXP(-0.05 * GREATEST(0.0, EXTRACT(EPOCH FROM (now() - COALESCE(published_at, now()))) / 86400.0)) * 0.25) DESC
                 LIMIT %s
                 """,
-                (target_embedding, article_id, category, target_embedding, limit)
+                (target_embedding, article_id, category, target_embedding, candidate_limit, limit)
             )
         else:
             cur.execute(
                 """
+                WITH candidates AS (
+                    SELECT id, title, description, url, image_url, source_name, category, published_at,
+                           (embedding <=> %s::vector) AS cosine_dist
+                    FROM articles
+                    WHERE id != %s
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                )
                 SELECT id, title, description, url, image_url, source_name, category, published_at,
-                       1 - (embedding <=> %s::vector) AS similarity
-                FROM articles
-                WHERE id != %s
-                ORDER BY (embedding <=> %s::vector) + (0.001 * EXTRACT(DAY FROM now() - published_at))
+                       (1 - cosine_dist) AS similarity
+                FROM candidates
+                ORDER BY ((1 - cosine_dist) * 0.75 + EXP(-0.05 * GREATEST(0.0, EXTRACT(EPOCH FROM (now() - COALESCE(published_at, now()))) / 86400.0)) * 0.25) DESC
                 LIMIT %s
                 """,
-                (target_embedding, article_id, target_embedding, limit)
+                (target_embedding, article_id, target_embedding, candidate_limit, limit)
             )
             
         rows = cur.fetchall()

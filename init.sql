@@ -15,9 +15,9 @@ CREATE TABLE IF NOT EXISTS articles (
     created_at TIMESTAMP DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_articles_embedding
-    ON articles USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+CREATE INDEX IF NOT EXISTS idx_articles_embedding_hnsw
+    ON articles USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 CREATE INDEX IF NOT EXISTS idx_articles_category ON articles (category);
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles (published_at DESC);

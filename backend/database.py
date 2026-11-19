@@ -70,6 +70,11 @@ def init_db():
             cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_articles_published ON articles (published_at DESC);
             """)
+            cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_articles_embedding_hnsw
+                ON articles USING hnsw (embedding vector_cosine_ops)
+                WITH (m = 16, ef_construction = 64);
+            """)
             
             # 4. Check if we need to seed initial articles
             cur.execute("SELECT COUNT(*) FROM articles;")
