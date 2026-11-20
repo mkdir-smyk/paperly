@@ -1,6 +1,6 @@
 # Paperly
 
-A semantic news discovery and recommendation platform built to surface related stories using dense vector embeddings and in-database similarity search.
+A semantic news discovery and recommendation platform built to surface contextually related stories using dense vector embeddings and in-database similarity search.
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/baad4b85-0830-49d6-ad25-afb1c33aa3da" width="48%" />
@@ -24,7 +24,7 @@ Articles ingested into Paperly are converted into 384-dimensional dense vector e
 
 ## System Architecture
 
-Paperly is designed as a decoupled, microservices-ready architecture prioritizing fault-tolerant data ingestion, low-latency vector retrieval, and stateless client interactions.
+Paperly is structured as a decoupled, multi-tier system designed for resilient real-time news ingestion, sub-millisecond semantic retrieval, and stateless client interactions.
 
 ```
                     ┌────────────────────────┐
@@ -34,9 +34,9 @@ Paperly is designed as a decoupled, microservices-ready architecture prioritizin
                                 │
                     ┌───────────▼────────────┐
                     │ Ingestion & Resiliency │
+                    │ • Multi-Feed Failover  │
                     │ • Batch Processing     │
                     │ • URL Normalization    │
-                    │ • Multi-Feed Fallback  │
                     └───────────┬────────────┘
                                 │
                     ┌───────────▼────────────┐
@@ -47,7 +47,7 @@ Paperly is designed as a decoupled, microservices-ready architecture prioritizin
                                 │
                     ┌───────────▼────────────┐
                     │  PostgreSQL + pgvector │
-                    │ • HNSW Vector Index    │
+                    │ • HNSW Vector Graph    │
                     │ • Relational Store     │
                     │ • User & Bookmark DB   │
                     └───────────┬────────────┘
@@ -74,41 +74,45 @@ Paperly is designed as a decoupled, microservices-ready architecture prioritizin
 
 ---
 
-## Technical Highlights & System Design
+## Core System Modules
 
-### 1. Fault-Tolerant Multi-Source Ingestion Pipeline
-- **Dual-Tier Ingestion**: Fetches live articles across international and regional categories via primary news APIs. If upstream API quotas are exceeded or rate-limited, the system automatically falls back to curated RSS streams (BBC, Reuters, The Hindu, Times of India).
-- **Idempotency & Deduplication**: Canonicalizes URLs and executes batch upserts (`ON CONFLICT (url) DO UPDATE/NOTHING`), ensuring zero duplicate entries while maintaining feed freshness.
-- **Batched Vectorization**: Converts raw content chunks through transformer inference in batch slices, eliminating memory thrashing and keeping ingestion runtime predictable.
+### 1. Data Ingestion & Resiliency Subsystem
+- **Multi-Source Ingestion**: Aggregates live news across domestic and international categories using structured REST APIs paired with automated RSS syndication fallbacks (BBC, Reuters, The Hindu, Times of India) to maintain high availability during upstream rate-limiting or provider downtime.
+- **Idempotency & Deduplication**: Canonicalizes article URLs and executes atomic batch upserts (`ON CONFLICT (url) DO UPDATE/NOTHING`), guaranteeing database integrity and eliminating duplicate content.
+- **Batch Processing**: Groups un-embedded articles into configurable batch slices for model vectorization, maintaining predictable memory footprints and stable ingestion cycles.
 
-### 2. High-Dimensional Embedding Engine
-- Generates 384-dimensional dense semantic vectors using PyTorch and Hugging Face's `sentence-transformers/all-MiniLM-L6-v2`.
-- Encodes combined headline, summary, and contextual body tokens into a unified embedding space, capturing cross-topic conceptual nuances that traditional lexical search (TF-IDF, BM25) fails to identify.
+### 2. Dense Semantic Vector Pipeline
+- **Embedding Generation**: Leverages PyTorch and Hugging Face's `sentence-transformers/all-MiniLM-L6-v2` to map article titles, summaries, and content excerpts into 384-dimensional dense vector representations.
+- **Conceptual Affinity Mapping**: Encodes semantic relationships into a shared vector space, allowing the engine to associate related stories across distinct vocabularies, regions, and journalistic styles.
 
-### 3. Sub-Millisecond Vector Retrieval via pgvector HNSW
-- Replaces expensive $O(N)$ brute-force table scans with **Hierarchical Navigable Small World (HNSW)** graph indexing inside PostgreSQL (`vector_cosine_ops` with `m = 16`, `ef_construction = 64`).
-- Enables sub-millisecond Approximate Nearest Neighbor (ANN) search directly at the storage layer without requiring dedicated external vector databases.
+### 3. In-Database Vector Storage & HNSW Indexing
+- **Native Vector Engine**: Houses article metadata and high-dimensional embeddings within PostgreSQL using the `pgvector` extension.
+- **HNSW Graph Search**: Deploys **Hierarchical Navigable Small World (HNSW)** index graphs (`vector_cosine_ops`, `m = 16`, `ef_construction = 64`), enabling sub-millisecond Approximate Nearest Neighbor (ANN) cosine distance queries directly within the primary relational database.
 
-### 4. Two-Stage Hybrid Retrieval & Caching
-- **Stage 1 (Pre-filtering & ANN Traversal)**: Prunes candidate space by target category and publication recency, traversing the HNSW graph to collect top candidates based on vector cosine distance.
-- **Stage 2 (Relevance Cutoff & Deduplication)**: Enforces a strict cosine distance threshold (`distance < 0.45` / similarity $> 0.55$) to filter out spurious matches and exclude the root story.
-- **Serving Optimization**: In-memory response caching with a time-to-live (TTL) cache minimizes redundant vector calculations for hot stories, backed by `psycopg` connection pooling.
+### 4. Two-Stage Retrieval & Serving Subsystem
+- **Stage 1 (Pre-filtering & Candidate Traversal)**: Traverses the HNSW index graph under specified category and recency filters to retrieve the closest semantic neighbors.
+- **Stage 2 (Relevance Cutoff & Ranking)**: Applies a strict cosine distance threshold (`distance < 0.45` / similarity $> 0.55$) to eliminate non-relevant stories and automatically filters out the source article.
+- **High-Throughput Caching**: Combines an in-memory TTL cache for popular story recommendations with `psycopg` database connection pooling to handle concurrent query spikes with low latency.
 
-### 5. Stateless Security & Personalization
-- **JWT Bearer Authentication**: Issues cryptographically signed HS256 tokens for stateless user sessions.
-- **Secure Password Hashing**: Utilizes `bcrypt` with automatic salt generation across 12 work factor rounds; passwords and hashes are strictly excluded from API responses and database logs.
-- **Relational Bookmark Persistence**: Stores user-saved stories with database-level cascading integrity (`ON DELETE CASCADE`) and parameterized SQL queries to prevent injection attacks.
+### 5. Identity & Personalization Subsystem
+- **Stateless Authentication**: Uses standard JSON Web Tokens (JWT) signed via HS256 for secure, stateless request authorization across protected routes.
+- **Credential Protection**: Hashes user passwords using `bcrypt` with unique per-user salt generation across 12 work factor rounds; sensitive credentials are never stored in plaintext or exposed in API payloads.
+- **Personalized Reading Lists**: Persists saved articles via relational schemas with foreign key cascading (`ON DELETE CASCADE`), ensuring consistent user reading lists across sessions.
+
+### 6. Editorial Client Interface
+- **Print-Inspired Aesthetic**: Custom React 18 interface styled with classic newspaper typography, clean hairline borders, and zero-emoji visual hierarchy.
+- **Interactive Capabilities**: Features dynamic local-time header editions, interactive semantic search, optimistic bookmark toggles, and animated reading drawers.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technologies |
+| Domain | Technologies |
 | :--- | :--- |
 | **Backend & ML** | Python 3.11+, FastAPI, PyTorch, Sentence-Transformers (`all-MiniLM-L6-v2`), PyJWT, Bcrypt, Feedparser |
 | **Database & Vector** | PostgreSQL 16+, `pgvector` (HNSW indexing), `psycopg` Connection Pool |
-| **Frontend** | React 18, Vite, Lucide Icons, CSS3 (Editorial / Print Typography) |
-| **Infrastructure** | Docker, Docker Compose, Multi-stage builds |
+| **Frontend** | React 18, Vite, Lucide React, Modern CSS3 |
+| **DevOps & Containerization** | Docker, Docker Compose, Multi-stage builds |
 
 ---
 
@@ -189,26 +193,26 @@ CREATE INDEX IF NOT EXISTS idx_user_bookmarks_user ON user_bookmarks (user_id);
 
 ---
 
-## API Endpoints
+## REST API Reference
 
-### Discovery & Content
+### Discovery & Recommendations
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/feed?category=india&page=1` | Paginated feed sorted by recency |
-| `GET` | `/api/articles/{id}` | Full article metadata and content |
-| `GET` | `/api/articles/{id}/recommendations` | Vector similarity recommendations ($k$-NN via HNSW) |
-| `GET` | `/api/search/semantic?q={query}` | Dense semantic query search against articles |
-| `POST`| `/api/ingest/run` | Triggers background ingestion & embedding job |
+| `GET` | `/api/feed?category=india&page=1` | Paginated article feed ordered by publication date |
+| `GET` | `/api/articles/{id}` | Detailed article metadata and content body |
+| `GET` | `/api/articles/{id}/recommendations` | Contextually related stories retrieved via HNSW cosine distance |
+| `GET` | `/api/search/semantic?q={query}` | Semantic search ranking articles against free-text query embeddings |
+| `POST`| `/api/ingest/run` | Triggers background ingestion and embedding pipeline |
 
 ### Authentication & Bookmarks
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST`| `/api/auth/register` | Register user account with email & password |
-| `POST`| `/api/auth/login` | Authenticate user credentials and return JWT bearer token |
-| `GET` | `/api/auth/me` | Fetch authenticated user profile |
-| `GET` | `/api/bookmarks` | Retrieve user's saved reading list |
-| `POST`| `/api/bookmarks/{article_id}` | Add article to bookmarks |
-| `DELETE`| `/api/bookmarks/{article_id}` | Remove article from bookmarks |
+| `POST`| `/api/auth/register` | Register new user account with email, name, and password |
+| `POST`| `/api/auth/login` | Authenticate credentials and return signed JWT bearer token |
+| `GET` | `/api/auth/me` | Fetch profile for authenticated user session |
+| `GET` | `/api/bookmarks` | Retrieve complete reading list for authenticated user |
+| `POST`| `/api/bookmarks/{article_id}` | Bookmark an article to user reading list |
+| `DELETE`| `/api/bookmarks/{article_id}` | Remove an article from user reading list |
 
 ---
 
@@ -216,7 +220,7 @@ CREATE INDEX IF NOT EXISTS idx_user_bookmarks_user ON user_bookmarks (user_id);
 
 ### Environment Configuration
 
-Create a `.env` file in `backend/` or the root directory:
+Create a `.env` file in `backend/` or the repository root:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/paperly
@@ -227,7 +231,7 @@ CORS_ORIGINS=*
 
 ### Option 1: Docker Compose (Recommended)
 
-Orchestrates the FastAPI backend, PostgreSQL with `pgvector`, and the frontend in unified containers:
+Spins up the FastAPI backend, PostgreSQL with `pgvector`, and the React frontend in unified containers:
 
 ```bash
 docker compose up --build
